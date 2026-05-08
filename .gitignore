@@ -5,6 +5,7 @@ __pycache__/
 .env
 doublezero-env/
 venv/
+backend/.env
 
 # Anchor/Rust
 target/
