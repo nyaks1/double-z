@@ -1,6 +1,8 @@
 import json
 import time
 import re
+import os
+from typing import Optional
 from fastapi import FastAPI, File, UploadFile, Form, HTTPException
 import uvicorn
 from dotenv import load_dotenv
@@ -20,9 +22,10 @@ app = FastAPI(title="DoubleZ: Zero-Trust Voice Agent")
 
 @app.post("/process_intent")
 async def process_intent(
-    audio: UploadFile = File(...),
     wallet_pubkey: str = Form(...),
-    contacts: str = Form(...)
+    contacts: str = Form(...),
+    audio: Optional[UploadFile] = File(None),
+    text_intent: Optional[str] = Form(None)
 ):
     print(">>> [DEBUG] Request received! Validating inputs...")
     
@@ -33,26 +36,40 @@ async def process_intent(
         raise HTTPException(status_code=400, detail="Invalid Solana wallet_pubkey.")
 
     # 2. Validate File Size
-    audio_bytes = await audio.read()
-    if len(audio_bytes) > MAX_FILE_SIZE:
-        raise HTTPException(status_code=413, detail="Audio file too large. Max 5MB.")
+    if audio:
+        audio_bytes = await audio.read()
+        if len(audio_bytes) > MAX_FILE_SIZE:
+            raise HTTPException(status_code=413, detail="Audio file too large. Max 5MB.")
+    elif not text_intent:
+        raise HTTPException(status_code=400, detail="Must provide either audio or text_intent")
 
     # 3. Capture the exact moment (the Unique ID for the PDA seeds)
     timestamp = int(time.time())
 
-    # 4. Convert Audio to Text (The Ears)
-    transcript = await transcribe_audio(audio_bytes)
+    # Check MOCK_AI flag
+    MOCK_AI = os.getenv("MOCK_AI", "false").lower() == "true"
     
-    if not transcript:
-        raise HTTPException(status_code=500, detail="Voice transcription failed.")
-
-    # 3. Parse intent from transcript
-    amount, target_name = await parse_intent_with_llm(transcript)
-    if not amount or not target_name:
-        raise HTTPException(
-            status_code=400, 
-            detail=f"Could not parse intent from: '{transcript}'. Try: 'Send [amount] SOL to [name]'"
-        )
+    if MOCK_AI:
+        print(">>> [MOCK_AI] Mock mode enabled. Bypassing ElevenLabs and LLM.")
+        transcript = text_intent if text_intent else "Send 5 SOL to Nyaks"
+        amount = 5.0
+        target_name = "Nyaks"
+    else:
+        # 4. Convert Audio to Text (The Ears)
+        if audio:
+            transcript = await transcribe_audio(audio_bytes)
+            if not transcript:
+                raise HTTPException(status_code=500, detail="Voice transcription failed.")
+        else:
+            transcript = text_intent
+            
+        # 5. Parse intent from transcript
+        amount, target_name = await parse_intent_with_llm(transcript)
+        if not amount or not target_name:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Could not parse intent from: '{transcript}'. Try: 'Send [amount] SOL to [name]'"
+            )
 
     # 4. Map name to Pubkey (The Brain)
     try:

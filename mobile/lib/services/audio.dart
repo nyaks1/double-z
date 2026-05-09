@@ -55,4 +55,27 @@ class AudioService {
       return null;
     }
   }
+
+  Future<Map<String, dynamic>?> sendTextIntent(String walletPubkey, String contactsJson, String textIntent) async {
+    try {
+      var request = http.MultipartRequest('POST', Uri.parse(_backendUrl));
+      
+      request.fields['wallet_pubkey'] = walletPubkey;
+      request.fields['contacts'] = contactsJson;
+      request.fields['text_intent'] = textIntent;
+      
+      var streamedResponse = await request.send();
+      var response = await http.Response.fromStream(streamedResponse);
+
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      } else {
+        debugPrint("Backend error: ${response.statusCode} - ${response.body}");
+        return null;
+      }
+    } catch (e) {
+      debugPrint("Network error: $e");
+      return null;
+    }
+  }
 }
