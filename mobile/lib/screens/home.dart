@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
+import '../services/audio.dart';
+import '../services/wallet.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -10,8 +13,11 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateMixin {
   late AnimationController _pulseController;
   final TextEditingController _textController = TextEditingController();
+  final AudioService _audioService = AudioService();
+  final WalletService _walletService = WalletService();
   bool _isRecording = false;
   bool _isTypingMode = false;
+  bool _isLoading = false;
 
   @override
   void initState() {
@@ -29,40 +35,59 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     super.dispose();
   }
 
-  void _toggleRecording() {
-    setState(() {
-      _isRecording = !_isRecording;
-    });
-    
-    // TODO: Integrate actual audio recording service and API call
-    if (!_isRecording) {
-      // Simulate sending to backend and navigating to confirm screen
-      Future.delayed(const Duration(seconds: 1), () {
-        if (mounted) {
-          Navigator.pushNamed(context, '/confirm', arguments: {
-            'amount': 5.0,
-            'recipient_name': 'Nyaks',
-            'transaction_payload': 'mock_base64_tx',
-          });
-        }
+  void _toggleRecording() async {
+    if (_isRecording) {
+      // Stop recording and process
+      setState(() {
+        _isRecording = false;
+        _isLoading = true;
       });
+      
+      try {
+        final walletPubkey = await _walletService.getWalletPubkey();
+        final contactsJson = jsonEncode({"Nyaks": "4Nd1m1aCGcgKpzRyVDcw1XpYwJvL6o8k3sQ1QXZz9N3X"}); // Mock contacts
+        final response = await _audioService.stopAndProcess(walletPubkey, contactsJson);
+        
+        if (response != null && mounted) {
+           Navigator.pushNamed(context, '/confirm', arguments: {
+             'amount': response['parsed']['amount'],
+             'recipient_name': response['parsed']['recipient_name'],
+             'transaction_payload': response['transaction_payload'],
+           });
+        }
+      } finally {
+        if (mounted) setState(() => _isLoading = false);
+      }
+    } else {
+      // Start recording
+      setState(() => _isRecording = true);
+      await _audioService.startRecording();
     }
   }
 
-  void _sendTextIntent() {
-    if (_textController.text.trim().isEmpty) return;
+  void _sendTextIntent() async {
+    final text = _textController.text.trim();
+    if (text.isEmpty) return;
     
-    // TODO: Integrate actual text sending service and API call
-    Future.delayed(const Duration(seconds: 1), () {
-      if (mounted) {
-        Navigator.pushNamed(context, '/confirm', arguments: {
-          'amount': 5.0,
-          'recipient_name': 'Nyaks',
-          'transaction_payload': 'mock_base64_tx',
-        });
-        _textController.clear();
+    setState(() => _isLoading = true);
+    
+    try {
+      final walletPubkey = await _walletService.getWalletPubkey();
+      final contactsJson = jsonEncode({"Nyaks": "4Nd1m1aCGcgKpzRyVDcw1XpYwJvL6o8k3sQ1QXZz9N3X"}); // Mock contacts
+      
+      final response = await _audioService.sendTextIntent(walletPubkey, contactsJson, text);
+      
+      if (response != null && mounted) {
+         Navigator.pushNamed(context, '/confirm', arguments: {
+           'amount': response['parsed']['amount'],
+           'recipient_name': response['parsed']['recipient_name'],
+           'transaction_payload': response['transaction_payload'],
+         });
+         _textController.clear();
       }
-    });
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   @override
@@ -83,7 +108,9 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
               children: [
                 const Spacer(),
                 Text(
-                  _isTypingMode ? "Type your intent" : (_isRecording ? "Listening..." : "Tap to Speak"),
+                  _isLoading 
+                      ? "Processing..." 
+                      : (_isTypingMode ? "Type your intent" : (_isRecording ? "Listening..." : "Tap to Speak")),
                   style: Theme.of(context).textTheme.displayLarge?.copyWith(fontSize: 32),
                 ),
                 const SizedBox(height: 16),
@@ -136,11 +163,13 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                               ),
                             ],
                           ),
-                          child: Icon(
-                            _isRecording ? Icons.stop : Icons.mic,
-                            size: 50,
-                            color: Colors.white,
-                          ),
+                          child: _isLoading 
+                              ? const CircularProgressIndicator(color: Colors.white)
+                              : Icon(
+                                  _isRecording ? Icons.stop : Icons.mic,
+                                  size: 50,
+                                  color: Colors.white,
+                                ),
                         ),
                       ],
                     ),
