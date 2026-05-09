@@ -99,6 +99,10 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
            'recipient_name': response['parsed']['recipient_name'],
            'transaction_payload': response['transaction_payload'],
          });
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Something went wrong. Try again.'))
+        );
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -124,6 +128,10 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
            'transaction_payload': response['transaction_payload'],
          });
          _textController.clear();
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Something went wrong. Try again.'))
+        );
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
