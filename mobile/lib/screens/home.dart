@@ -90,7 +90,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                               height: 150 + (_pulseController.value * 30),
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                color: Theme.of(context).colorScheme.primary.withOpacity(0.2),
+                                color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.2),
                               ),
                             );
                           },
@@ -109,7 +109,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: _isRecording ? Colors.redAccent.withOpacity(0.5) : Theme.of(context).colorScheme.primary.withOpacity(0.5),
+                              color: _isRecording ? Colors.redAccent.withValues(alpha: 0.5) : Theme.of(context).colorScheme.primary.withValues(alpha: 0.5),
                               blurRadius: 30,
                               spreadRadius: 5,
                             ),

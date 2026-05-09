@@ -34,7 +34,7 @@ class ConfirmScreen extends StatelessWidget {
                   border: Border.all(color: Colors.white12),
                   boxShadow: [
                     BoxShadow(
-                      color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                      color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
                       blurRadius: 40,
                       spreadRadius: -10,
                     )
@@ -83,7 +83,7 @@ class ConfirmScreen extends StatelessWidget {
                     borderRadius: BorderRadius.circular(30),
                     boxShadow: [
                       BoxShadow(
-                        color: Theme.of(context).colorScheme.primary.withOpacity(0.4),
+                        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.4),
                         blurRadius: 20,
                         offset: const Offset(0, 10),
                       ),

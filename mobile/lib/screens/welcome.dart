@@ -81,7 +81,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProvider
                             ),
                             boxShadow: [
                               BoxShadow(
-                                color: const Color(0xFF6C63FF).withOpacity(0.5),
+                                color: const Color(0xFF6C63FF).withValues(alpha: 0.5),
                                 blurRadius: 30,
                                 spreadRadius: 5,
                                 offset: const Offset(0, 10),
@@ -130,7 +130,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProvider
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFF00E5FF).withOpacity(0.3),
+                          color: const Color(0xFF00E5FF).withValues(alpha: 0.3),
                           blurRadius: 20,
                           spreadRadius: 2,
                           offset: const Offset(0, 8),

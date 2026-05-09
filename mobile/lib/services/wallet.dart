@@ -1,4 +1,4 @@
-import 'dart:convert';
+import 'package:flutter/foundation.dart';
 // import 'package:solana_mobile_client/solana_mobile_client.dart';
 
 class WalletService {
@@ -32,10 +32,10 @@ class WalletService {
       
       // Simulate wallet signature delay
       await Future.delayed(const Duration(seconds: 2));
-      print("Transaction signed and broadcasted successfully!");
+      debugPrint("Transaction signed and broadcasted successfully!");
       return true;
     } catch (e) {
-      print("Wallet error: $e");
+      debugPrint("Wallet error: $e");
       return false;
     }
   }

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:record/record.dart';
 import 'package:path_provider/path_provider.dart';
@@ -46,11 +47,11 @@ class AudioService {
       if (response.statusCode == 200) {
         return json.decode(response.body);
       } else {
-        print("Backend error: ${response.statusCode} - ${response.body}");
+        debugPrint("Backend error: ${response.statusCode} - ${response.body}");
         return null;
       }
     } catch (e) {
-      print("Network error: $e");
+      debugPrint("Network error: $e");
       return null;
     }
   }
