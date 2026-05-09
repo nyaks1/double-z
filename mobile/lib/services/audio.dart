@@ -43,6 +43,10 @@ class AudioService {
     }
   }
 
+  Stream<Amplitude> getAmplitudeStream() {
+    return _record.onAmplitudeChanged(const Duration(milliseconds: 50));
+  }
+
   Future<Map<String, dynamic>?> stopAndProcess(String walletPubkey, String contactsJson) async {
     final path = await _record.stop();
     if (path == null) return null;

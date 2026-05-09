@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
+import 'dart:async';
+import 'package:record/record.dart';
 import '../services/audio.dart';
 import '../services/wallet.dart';
 
@@ -11,29 +13,32 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateMixin {
-  late AnimationController _pulseController;
   final TextEditingController _textController = TextEditingController();
   final AudioService _audioService = AudioService();
   final WalletService _walletService = WalletService();
+  
   bool _isRecording = false;
   bool _isPaused = false;
   bool _isTypingMode = false;
   bool _isLoading = false;
 
-  @override
-  void initState() {
-    super.initState();
-    _pulseController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 1),
-    )..repeat(reverse: true);
-  }
+  StreamSubscription<Amplitude>? _amplitudeSub;
+  double _currentAmplitude = -50.0;
 
   @override
   void dispose() {
-    _pulseController.dispose();
+    _amplitudeSub?.cancel();
     _textController.dispose();
     super.dispose();
+  }
+
+  double get _normalizedAmplitude {
+    // Amplitude is usually between -50 and 0. Normalize to 0.0 - 1.0
+    double minAmp = -50.0;
+    double maxAmp = 0.0;
+    if (_currentAmplitude < minAmp) return 0.0;
+    if (_currentAmplitude > maxAmp) return 1.0;
+    return (_currentAmplitude - minAmp) / (maxAmp - minAmp);
   }
 
   void _startRecording() async {
@@ -42,34 +47,45 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       _isPaused = false;
     });
     await _audioService.startRecording();
+    
+    _amplitudeSub = _audioService.getAmplitudeStream().listen((amp) {
+      if (mounted) {
+        setState(() {
+          _currentAmplitude = amp.current;
+        });
+      }
+    });
   }
 
   void _pauseOrResumeRecording() async {
     if (_isPaused) {
       await _audioService.resumeRecording();
       setState(() => _isPaused = false);
-      _pulseController.repeat(reverse: true);
     } else {
       await _audioService.pauseRecording();
       setState(() => _isPaused = true);
-      _pulseController.stop();
+      // When paused, stop the visualizer movement
+      setState(() => _currentAmplitude = -50.0);
     }
   }
 
   void _cancelRecording() async {
+    _amplitudeSub?.cancel();
     setState(() {
       _isRecording = false;
       _isPaused = false;
+      _currentAmplitude = -50.0;
     });
     await _audioService.cancelRecording();
-    _pulseController.repeat(reverse: true);
   }
 
   void _sendRecording() async {
+    _amplitudeSub?.cancel();
     setState(() {
       _isRecording = false;
       _isPaused = false;
       _isLoading = true;
+      _currentAmplitude = -50.0;
     });
     
     try {
@@ -86,7 +102,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
-      _pulseController.repeat(reverse: true);
     }
   }
 
@@ -192,20 +207,15 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                     Stack(
                       alignment: Alignment.center,
                       children: [
-                        if (!_isPaused)
-                          AnimatedBuilder(
-                            animation: _pulseController,
-                            builder: (context, child) {
-                              return Container(
-                                width: 280 + (_pulseController.value * 20),
-                                height: 80 + (_pulseController.value * 10),
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(50),
-                                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.15),
-                                ),
-                              );
-                            },
+                        AnimatedContainer(
+                          duration: const Duration(milliseconds: 50),
+                          width: 280 + (_normalizedAmplitude * 60),
+                          height: 80 + (_normalizedAmplitude * 30),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(50),
+                            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.15 + (_normalizedAmplitude * 0.2)),
                           ),
+                        ),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                           decoration: BoxDecoration(

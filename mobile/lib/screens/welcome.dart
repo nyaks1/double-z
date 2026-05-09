@@ -72,26 +72,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProvider
                         Container(
                           width: 120,
                           height: 120,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFF6C63FF), Color(0xFF00E5FF)],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: const Color(0xFF6C63FF).withValues(alpha: 0.5),
-                                blurRadius: 30,
-                                spreadRadius: 5,
-                                offset: const Offset(0, 10),
-                              ),
-                            ],
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.all(12.0),
-                            child: Image.asset('assets/logo.png', fit: BoxFit.contain),
-                          ),
+                          child: Image.asset('assets/logo.png', fit: BoxFit.contain),
                         ),
                         const SizedBox(height: 40),
                         // Title
