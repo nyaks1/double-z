@@ -4,7 +4,6 @@ from solders.pubkey import Pubkey
 import struct
 import base64
 import hashlib
-from solders.pubkey import Pubkey
 from solders.instruction import Instruction, AccountMeta
 from solders.system_program import ID as SYS_PROG_ID
 

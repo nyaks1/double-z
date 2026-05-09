@@ -55,7 +55,11 @@ async def process_intent(
         )
 
     # 4. Map name to Pubkey (The Brain)
-    contacts_dict = json.loads(contacts)
+    try:
+        contacts_dict = json.loads(contacts)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Invalid contacts format")
+        
     recipient_pubkey, error = resolve_contact(target_name, contacts_dict)
     
     if error:

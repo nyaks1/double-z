@@ -25,7 +25,7 @@ async def transcribe_audio(audio_bytes: bytes) -> str:
                     "file": ("audio.m4a", audio_bytes, "audio/mp4")
                 },
                 data={
-                    "model_id": "scribe_v1" 
+                    "model_id": "scribe_v2" 
                 },
                 timeout=30.0
             )
@@ -33,4 +33,4 @@ async def transcribe_audio(audio_bytes: bytes) -> str:
             return response.json().get("text", "")
         except Exception as e:
             print(f">>> [ERROR] ElevenLabs Call Failed: {e}")
-            raise e
+            raise HTTPException(status_code=502, detail="Transcription failed")
