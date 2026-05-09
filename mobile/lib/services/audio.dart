@@ -25,6 +25,24 @@ class AudioService {
     }
   }
 
+  Future<void> pauseRecording() async {
+    await _record.pause();
+  }
+
+  Future<void> resumeRecording() async {
+    await _record.resume();
+  }
+
+  Future<void> cancelRecording() async {
+    final path = await _record.stop();
+    if (path != null) {
+      final file = File(path);
+      if (file.existsSync()) {
+        file.deleteSync();
+      }
+    }
+  }
+
   Future<Map<String, dynamic>?> stopAndProcess(String walletPubkey, String contactsJson) async {
     final path = await _record.stop();
     if (path == null) return null;

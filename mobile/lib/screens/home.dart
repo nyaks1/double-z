@@ -16,6 +16,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   final AudioService _audioService = AudioService();
   final WalletService _walletService = WalletService();
   bool _isRecording = false;
+  bool _isPaused = false;
   bool _isTypingMode = false;
   bool _isLoading = false;
 
@@ -35,33 +36,57 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     super.dispose();
   }
 
-  void _toggleRecording() async {
-    if (_isRecording) {
-      // Stop recording and process
-      setState(() {
-        _isRecording = false;
-        _isLoading = true;
-      });
-      
-      try {
-        final walletPubkey = await _walletService.getWalletPubkey();
-        final contactsJson = jsonEncode({"Nyaks": "4Nd1m1aCGcgKpzRyVDcw1XpYwJvL6o8k3sQ1QXZz9N3X"}); // Mock contacts
-        final response = await _audioService.stopAndProcess(walletPubkey, contactsJson);
-        
-        if (response != null && mounted) {
-           Navigator.pushNamed(context, '/confirm', arguments: {
-             'amount': response['parsed']['amount'],
-             'recipient_name': response['parsed']['recipient_name'],
-             'transaction_payload': response['transaction_payload'],
-           });
-        }
-      } finally {
-        if (mounted) setState(() => _isLoading = false);
-      }
+  void _startRecording() async {
+    setState(() {
+      _isRecording = true;
+      _isPaused = false;
+    });
+    await _audioService.startRecording();
+  }
+
+  void _pauseOrResumeRecording() async {
+    if (_isPaused) {
+      await _audioService.resumeRecording();
+      setState(() => _isPaused = false);
+      _pulseController.repeat(reverse: true);
     } else {
-      // Start recording
-      setState(() => _isRecording = true);
-      await _audioService.startRecording();
+      await _audioService.pauseRecording();
+      setState(() => _isPaused = true);
+      _pulseController.stop();
+    }
+  }
+
+  void _cancelRecording() async {
+    setState(() {
+      _isRecording = false;
+      _isPaused = false;
+    });
+    await _audioService.cancelRecording();
+    _pulseController.repeat(reverse: true);
+  }
+
+  void _sendRecording() async {
+    setState(() {
+      _isRecording = false;
+      _isPaused = false;
+      _isLoading = true;
+    });
+    
+    try {
+      final walletPubkey = await _walletService.getWalletPubkey();
+      final contactsJson = jsonEncode({"Nyaks": "4Nd1m1aCGcgKpzRyVDcw1XpYwJvL6o8k3sQ1QXZz9N3X"}); // Mock contacts
+      final response = await _audioService.stopAndProcess(walletPubkey, contactsJson);
+      
+      if (response != null && mounted) {
+         Navigator.pushNamed(context, '/confirm', arguments: {
+           'amount': response['parsed']['amount'],
+           'recipient_name': response['parsed']['recipient_name'],
+           'transaction_payload': response['transaction_payload'],
+         });
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+      _pulseController.repeat(reverse: true);
     }
   }
 
@@ -110,7 +135,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                 Text(
                   _isLoading 
                       ? "Processing..." 
-                      : (_isTypingMode ? "Type your intent" : (_isRecording ? "Listening..." : "Tap to Speak")),
+                      : (_isTypingMode ? "Type your intent" : (_isRecording ? (_isPaused ? "Paused" : "Recording...") : "Tap to Speak")),
                   style: Theme.of(context).textTheme.displayLarge?.copyWith(fontSize: 32),
                 ),
                 const SizedBox(height: 16),
@@ -123,69 +148,113 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                 ),
                 const Spacer(),
                 
-                if (!_isTypingMode) ...[
-                  GestureDetector(
-                    onTap: _toggleRecording,
-                    child: Stack(
+                if (_isLoading) ...[
+                  const CircularProgressIndicator(color: Colors.white),
+                  const SizedBox(height: 80),
+                ] else if (!_isTypingMode) ...[
+                  if (!_isRecording) ...[
+                    GestureDetector(
+                      onTap: _startRecording,
+                      child: Container(
+                        width: 120,
+                        height: 120,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: LinearGradient(
+                            colors: [Theme.of(context).colorScheme.primary, Theme.of(context).colorScheme.secondary],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5),
+                              blurRadius: 30,
+                              spreadRadius: 5,
+                            ),
+                          ],
+                        ),
+                        child: const Icon(Icons.mic, size: 50, color: Colors.white),
+                      ),
+                    ),
+                    const SizedBox(height: 40),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: Padding(
+                        padding: const EdgeInsets.only(right: 32.0),
+                        child: IconButton(
+                          icon: const Icon(Icons.keyboard, color: Colors.white70, size: 32),
+                          onPressed: () => setState(() => _isTypingMode = true),
+                          tooltip: "Type your intent",
+                        ),
+                      ),
+                    ),
+                  ] else ...[
+                    Stack(
                       alignment: Alignment.center,
                       children: [
-                        if (_isRecording)
+                        if (!_isPaused)
                           AnimatedBuilder(
                             animation: _pulseController,
                             builder: (context, child) {
                               return Container(
-                                width: 150 + (_pulseController.value * 30),
-                                height: 150 + (_pulseController.value * 30),
+                                width: 280 + (_pulseController.value * 20),
+                                height: 80 + (_pulseController.value * 10),
                                 decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.2),
+                                  borderRadius: BorderRadius.circular(50),
+                                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.15),
                                 ),
                               );
                             },
                           ),
                         Container(
-                          width: 120,
-                          height: 120,
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                           decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            gradient: LinearGradient(
-                              colors: _isRecording 
-                                  ? [Colors.redAccent, Colors.deepOrange]
-                                  : [Theme.of(context).colorScheme.primary, Theme.of(context).colorScheme.secondary],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
+                            color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.9),
+                            borderRadius: BorderRadius.circular(50),
+                            border: Border.all(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3)),
                             boxShadow: [
                               BoxShadow(
-                                color: _isRecording ? Colors.redAccent.withValues(alpha: 0.5) : Theme.of(context).colorScheme.primary.withValues(alpha: 0.5),
-                                blurRadius: 30,
-                                spreadRadius: 5,
+                                color: Colors.black.withValues(alpha: 0.3),
+                                blurRadius: 15,
+                                spreadRadius: 2,
+                              )
+                            ]
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 28),
+                                onPressed: _cancelRecording,
+                                tooltip: "Delete",
+                              ),
+                              const SizedBox(width: 24),
+                              IconButton(
+                                icon: Icon(_isPaused ? Icons.mic : Icons.pause, color: Colors.white, size: 32),
+                                onPressed: _pauseOrResumeRecording,
+                                tooltip: _isPaused ? "Resume" : "Pause",
+                              ),
+                              const SizedBox(width: 24),
+                              Container(
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  gradient: LinearGradient(
+                                    colors: [Theme.of(context).colorScheme.primary, Theme.of(context).colorScheme.secondary],
+                                  ),
+                                ),
+                                child: IconButton(
+                                  icon: const Icon(Icons.send, color: Colors.white, size: 26),
+                                  onPressed: _sendRecording,
+                                  tooltip: "Send",
+                                ),
                               ),
                             ],
                           ),
-                          child: _isLoading 
-                              ? const CircularProgressIndicator(color: Colors.white)
-                              : Icon(
-                                  _isRecording ? Icons.stop : Icons.mic,
-                                  size: 50,
-                                  color: Colors.white,
-                                ),
                         ),
                       ],
                     ),
-                  ),
-                  const SizedBox(height: 40),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: Padding(
-                      padding: const EdgeInsets.only(right: 32.0),
-                      child: IconButton(
-                        icon: const Icon(Icons.keyboard, color: Colors.white70, size: 32),
-                        onPressed: () => setState(() => _isTypingMode = true),
-                        tooltip: "Type your intent",
-                      ),
-                    ),
-                  ),
+                    const SizedBox(height: 80),
+                  ],
                 ] else ...[
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24.0),
@@ -231,8 +300,8 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                       ),
                     ),
                   ),
+                  const SizedBox(height: 40),
                 ],
-                const SizedBox(height: 40),
               ],
             ),
           ),
