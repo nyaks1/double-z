@@ -146,10 +146,16 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                     ),
                   ),
                   const SizedBox(height: 40),
-                  IconButton(
-                    icon: const Icon(Icons.keyboard, color: Colors.white70, size: 32),
-                    onPressed: () => setState(() => _isTypingMode = true),
-                    tooltip: "Type your intent",
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: Padding(
+                      padding: const EdgeInsets.only(right: 32.0),
+                      child: IconButton(
+                        icon: const Icon(Icons.keyboard, color: Colors.white70, size: 32),
+                        onPressed: () => setState(() => _isTypingMode = true),
+                        tooltip: "Type your intent",
+                      ),
+                    ),
                   ),
                 ] else ...[
                   Padding(
