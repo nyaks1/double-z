@@ -143,10 +143,24 @@ flutter run
 
 ---
 
-## Roadmap (V2)
+## Roadmap
 
+### V2: Solana Name Service Resolution
+Currently DoubleZ resolves recipient names via a local 
+contact list on the Flutter app. V2 introduces SNS fallback:
+
+1. User says "Send 5 SOL to tsamaiso.sol"
+2. LLM parser detects `.sol` suffix in transcript
+3. Backend queries SNS program on mainnet:
+   `namesLPaSamrsfkqtunJupyXBFK65AtmJ7oqtyX2WM`
+4. Returns associated wallet pubkey
+5. Falls back to local contacts if SNS lookup fails
+
+This removes the dependency on pre-loaded contacts entirely —
+any `.sol` domain becomes a valid payment destination.
+
+### Other Future Plans
 - **LI.FI cross-chain** — fund escrow from Ethereum, Polygon, or any supported chain
-- **SNS resolution** — `tsamaiso.sol` via Solana Name Service
 - **Acoustic sanitization** — ElevenLabs voice re-synthesis to eliminate voiceprint before relay
 - **On-device ML** — local intent parsing, fully offline
 
