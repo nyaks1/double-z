@@ -32,7 +32,7 @@ def build_create_escrow_tx(sender_pubkey: str, recipient_pubkey: str, amount_sol
     )
 
     # Use the real Anchor discriminator
-    data = get_discriminator("create_escrow") + struct.pack("<QQ", amount_lamports, timestamp)
+    data = get_discriminator("create_escrow") + struct.pack("<Qq", amount_lamports, timestamp)
 
     accounts = [
         AccountMeta(pubkey=sender, is_signer=True, is_writable=True),

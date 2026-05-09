@@ -11,6 +11,9 @@ from agent import transcribe_audio
 from resolver import resolve_contact
 from transaction import build_create_escrow_tx
 from llm_parser import parse_intent_with_llm
+from solders.pubkey import Pubkey
+
+MAX_FILE_SIZE = 5 * 1024 * 1024  # 5 MB
 
 app = FastAPI(title="DoubleZ: Zero-Trust Voice Agent")
 
@@ -21,13 +24,23 @@ async def process_intent(
     wallet_pubkey: str = Form(...),
     contacts: str = Form(...)
 ):
-    print(">>> [DEBUG] Request received! Starting transcription...") # ADD THIS
-    # ... rest of your code
-    # 1. Capture the exact moment (the Unique ID for the PDA seeds)
+    print(">>> [DEBUG] Request received! Validating inputs...")
+    
+    # 1. Validate Pubkey
+    try:
+        Pubkey.from_string(wallet_pubkey)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid Solana wallet_pubkey.")
+
+    # 2. Validate File Size
+    audio_bytes = await audio.read()
+    if len(audio_bytes) > MAX_FILE_SIZE:
+        raise HTTPException(status_code=413, detail="Audio file too large. Max 5MB.")
+
+    # 3. Capture the exact moment (the Unique ID for the PDA seeds)
     timestamp = int(time.time())
 
-    # 2. Convert Audio to Text (The Ears)
-    audio_bytes = await audio.read()
+    # 4. Convert Audio to Text (The Ears)
     transcript = await transcribe_audio(audio_bytes)
     
     if not transcript:
