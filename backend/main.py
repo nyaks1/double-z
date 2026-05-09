@@ -10,39 +10,10 @@ load_dotenv()
 from agent import transcribe_audio
 from resolver import resolve_contact
 from transaction import build_create_escrow_tx
+from llm_parser import parse_intent_with_llm
 
 app = FastAPI(title="DoubleZ: Zero-Trust Voice Agent")
 
-def extract_intent(transcript: str):
-    t = transcript.lower()
-    
-    # 1. Map common words to digits
-    number_map = {
-        "one": "1", "two": "2", "three": "3", "four": "4", "five": "5",
-        "six": "6", "seven": "7", "eight": "8", "nine": "9", "ten": "10",
-        "zero": "0", "point": "."
-    }
-    
-    # Replace words with digits for the regex to catch
-    for word, digit in number_map.items():
-        t = t.replace(word, digit)
-
-    try:
-        # Now look for numbers (int or float) before 'sol'
-        amount_match = re.search(r"(\d+\.?\d*)\s*sol", t)
-        
-        # Look for the name after 'to'
-        # Improved: handles "to John." by stripping punctuation
-        name_match = re.search(r"to\s+(\w+)", t)
-
-        if not amount_match or not name_match:
-            return None, None
-            
-        amount = float(amount_match.group(1))
-        name = name_match.group(1).strip().capitalize()
-        return amount, name
-    except Exception:
-        return None, None
 
 @app.post("/process_intent")
 async def process_intent(
@@ -63,7 +34,7 @@ async def process_intent(
         raise HTTPException(status_code=500, detail="Voice transcription failed.")
 
     # 3. Parse intent from transcript
-    amount, target_name = extract_intent(transcript)
+    amount, target_name = await parse_intent_with_llm(transcript)
     if not amount or not target_name:
         raise HTTPException(
             status_code=400, 
