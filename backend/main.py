@@ -1,40 +1,107 @@
-from fastapi import FastAPI, File, UploadFile, Form, HTTPException
 import json
+import time
+import re
+from fastapi import FastAPI, File, UploadFile, Form, HTTPException
 import uvicorn
+from dotenv import load_dotenv
+load_dotenv()
 
-app = FastAPI(title="DoubleZ Agent API")
+
+from agent import transcribe_audio
+from resolver import resolve_contact
+from transaction import build_create_escrow_tx
+
+app = FastAPI(title="DoubleZ: Zero-Trust Voice Agent")
+
+def extract_intent(transcript: str):
+    t = transcript.lower()
+    
+    # 1. Map common words to digits
+    number_map = {
+        "one": "1", "two": "2", "three": "3", "four": "4", "five": "5",
+        "six": "6", "seven": "7", "eight": "8", "nine": "9", "ten": "10",
+        "zero": "0", "point": "."
+    }
+    
+    # Replace words with digits for the regex to catch
+    for word, digit in number_map.items():
+        t = t.replace(word, digit)
+
+    try:
+        # Now look for numbers (int or float) before 'sol'
+        amount_match = re.search(r"(\d+\.?\d*)\s*sol", t)
+        
+        # Look for the name after 'to'
+        # Improved: handles "to John." by stripping punctuation
+        name_match = re.search(r"to\s+(\w+)", t)
+
+        if not amount_match or not name_match:
+            return None, None
+            
+        amount = float(amount_match.group(1))
+        name = name_match.group(1).strip().capitalize()
+        return amount, name
+    except Exception:
+        return None, None
 
 @app.post("/process_intent")
 async def process_intent(
     audio: UploadFile = File(...),
     wallet_pubkey: str = Form(...),
-    contacts: str = Form(...) # We receive this as a JSON string
+    contacts: str = Form(...)
 ):
-    try:
-        # 1. Parse the contacts string back into a Python dictionary
-        contacts_dict = json.loads(contacts)
-        
-        # Log the incoming state to prove the data arrived (Remove in production)
-        print(f"Received audio file: {audio.filename}")
-        print(f"Sender Pubkey: {wallet_pubkey}")
-        print(f"Loaded {len(contacts_dict)} contacts.")
+    print(">>> [DEBUG] Request received! Starting transcription...") # ADD THIS
+    # ... rest of your code
+    # 1. Capture the exact moment (the Unique ID for the PDA seeds)
+    timestamp = int(time.time())
 
-        # --- THE PIPELINE (We build these next) ---
-        # 2. transcript = await transcribe_audio(audio)
-        # 3. recipient_pubkey, amount = parse_and_resolve(transcript, contacts_dict)
-        # 4. unsigned_tx = build_transaction(wallet_pubkey, recipient_pubkey, amount)
-        
-        # Return the payload and instantly forget everything.
+    # 2. Convert Audio to Text (The Ears)
+    audio_bytes = await audio.read()
+    transcript = await transcribe_audio(audio_bytes)
+    
+    if not transcript:
+        raise HTTPException(status_code=500, detail="Voice transcription failed.")
+
+    # 3. Parse intent from transcript
+    amount, target_name = extract_intent(transcript)
+    if not amount or not target_name:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Could not parse intent from: '{transcript}'. Try: 'Send [amount] SOL to [name]'"
+        )
+
+    # 4. Map name to Pubkey (The Brain)
+    contacts_dict = json.loads(contacts)
+    recipient_pubkey, error = resolve_contact(target_name, contacts_dict)
+    
+    if error:
+        raise HTTPException(status_code=400, detail=error)
+
+    # 5. Build the Solana Instruction (The Architect)
+    try:
+        ix_b64, pda_address = build_create_escrow_tx(
+            sender_pubkey=wallet_pubkey,
+            recipient_pubkey=recipient_pubkey,
+            amount_sol=amount,
+            timestamp=timestamp
+        )
+
+        # 6. Response (Final Payload)
         return {
-            "status": "success",
-            "transcript": "Mock transcript: Send 10 SOL to Tsamaiso",
-            "transaction_payload": "Mock_Base64_Transaction_String"
+            "status": "ready_for_signature",
+            "transcript": transcript,
+            "parsed": {
+                "amount": amount,
+                "recipient_name": target_name,
+                "recipient_pubkey": recipient_pubkey
+            },
+            "pda_vault": pda_address,
+            "timestamp": timestamp,
+            "transaction_payload": ix_b64
         }
 
-    except json.JSONDecodeError:
-        raise HTTPException(status_code=400, detail="Invalid contacts JSON format")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"Transaction building failed: {str(e)}")
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

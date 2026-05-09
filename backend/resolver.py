@@ -1,36 +1,29 @@
 from thefuzz import process
 
 def resolve_contact(spoken_name: str, contacts: dict):
-    """
-    Takes a name from a transcript and matches it against a dictionary
-    of contacts using Levenshtein distance.
-    """
     if not contacts:
         return None, "No contacts provided."
 
-    # 1. Extract the best match and its score
-    # process.extractOne returns (match, score)
-    match, score = process.extractOne(spoken_name, contacts.keys())
+    # 1. Sanitize input
+    query = spoken_name.strip().lower()
+    choices = {k.lower(): k for k in contacts.keys()} # Map lowered to original
 
-    # 2. Strict threshold for security. 
-    # If it's less than 80% similar, we don't risk it.
-    if score >= 80:
-        return contacts[match], None
+    # 2. Get top 2 matches to check for ambiguity
+    results = process.extract(query, choices.keys(), limit=2)
     
-    return None, f"Ambiguous name: '{spoken_name}'. Closest match: '{match}' ({score}%). Please be more specific."
+    if not results:
+        return None, f"No match found for '{spoken_name}'."
 
-# --- QUICK TEST ---
-if __name__ == "__main__":
-    test_contacts = {
-        "Tsamaiso": "GZnucqsYkgj9jpT48WdyzRuGMuvQnNSiDciZ2EtVRPuZ",
-        "Alice": "7xKp...dummy_address",
-    }
+    best_match, score = results[0][0], results[0][1]
     
-    # Simulate a slightly mispronounced or mis-transcribed name
-    name_to_test = "Somaiso" 
-    address, error = resolve_contact(name_to_test, test_contacts)
-    
-    if error:
-        print(f"Error: {error}")
-    else:
-        print(f"Resolved '{name_to_test}' to {address}")
+    # Security Threshold
+    if score < 80:
+        return None, f"Low confidence match ({score}%). Please be more specific."
+
+    # Ambiguity Check: If the second best match is too close (within 10 points)
+    if len(results) > 1:
+        second_match, second_score = results[1][0], results[1][1]
+        if (score - second_score) < 10:
+            return None, f"Ambiguous name. Did you mean {choices[best_match]} or {choices[second_match]}?"
+
+    return contacts[choices[best_match]], None

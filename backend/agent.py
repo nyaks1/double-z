@@ -1,11 +1,19 @@
-import httpx
 import os
+import httpx
+from dotenv import load_dotenv
 from fastapi import HTTPException
+
+# Load it here at the top!
+load_dotenv()
 
 ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
 
 async def transcribe_audio(audio_bytes: bytes) -> str:
-    # 1. Use an async client to prevent blocking the event loop
+    # Fail Fast Check
+    if not ELEVENLABS_API_KEY:
+        print(">>> [ERROR] ELEVENLABS_API_KEY is missing from .env!")
+        raise HTTPException(status_code=500, detail="Server configuration error: Missing API Key")
+
     async with httpx.AsyncClient() as client:
         try:
             response = await client.post(
@@ -14,23 +22,15 @@ async def transcribe_audio(audio_bytes: bytes) -> str:
                     "xi-api-key": ELEVENLABS_API_KEY
                 },
                 files={
-                    "file": ("audio.wav", audio_bytes, "audio/wav")
+                    "file": ("audio.m4a", audio_bytes, "audio/mp4")
                 },
                 data={
-                    "model_id": "scribe_v1" # v1 is the production stable for STT
+                    "model_id": "scribe_v1" 
                 },
-                timeout=30.0 # Transcription takes time; don't let it timeout early
+                timeout=30.0
             )
-            
-            # 2. Check for HTTP errors (4xx, 5xx) before parsing
             response.raise_for_status()
-            
-            result = response.json()
-            return result.get("text", "")
-
-        except httpx.HTTPStatusError as e:
-            print(f"ElevenLabs API Error: {e.response.text}")
-            raise HTTPException(status_code=e.response.status_code, detail="Transcription service error")
+            return response.json().get("text", "")
         except Exception as e:
-            print(f"Unexpected Backend Error: {e}")
-            raise HTTPException(status_code=500, detail="Internal server error")
+            print(f">>> [ERROR] ElevenLabs Call Failed: {e}")
+            raise e
