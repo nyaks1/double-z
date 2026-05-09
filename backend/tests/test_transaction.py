@@ -1,10 +1,13 @@
 import pytest
 import os
 import base64
-from transaction import build_create_escrow_tx
+import sys
 
-# Mock the environment variable for testing
+# Mock the environment variable for testing BEFORE importing module
 os.environ["PROGRAM_ID"] = "11111111111111111111111111111111"
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from transaction import build_create_escrow_tx
 
 def test_build_create_escrow_tx():
     sender = "4Nd1m1aCGcgKpzRyVDcw1XpYwJvL6o8k3sQ1QXZz9N3X"

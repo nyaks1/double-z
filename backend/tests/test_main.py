@@ -1,5 +1,8 @@
 import pytest
 from unittest.mock import AsyncMock, patch
+import sys
+import os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from llm_parser import parse_intent_with_llm
 
 @pytest.mark.asyncio
