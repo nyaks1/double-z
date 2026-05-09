@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'screens/welcome.dart';
 import 'screens/home.dart';
 import 'screens/confirm.dart';
 
@@ -38,7 +39,8 @@ class DoubleZApp extends StatelessWidget {
       ),
       initialRoute: '/',
       routes: {
-        '/': (context) => const HomeScreen(),
+        '/': (context) => const WelcomeScreen(),
+        '/home': (context) => const HomeScreen(),
         '/confirm': (context) => const ConfirmScreen(),
       },
     );

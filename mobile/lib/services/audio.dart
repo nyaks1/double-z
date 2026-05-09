@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:record/record.dart';
@@ -8,7 +9,7 @@ class AudioService {
   String? _audioPath;
 
   // Change this to your backend IP if running on device, or 10.0.2.2 for emulator
-  final String _backendUrl = 'http://10.0.2.2:8000/process_intent';
+  final String _backendUrl = 'http://192.168.0.147:8000/process_intent';
 
   Future<void> startRecording() async {
     if (await _record.hasPermission()) {
@@ -43,7 +44,6 @@ class AudioService {
       var response = await http.Response.fromStream(streamedResponse);
 
       if (response.statusCode == 200) {
-        import 'dart:convert';
         return json.decode(response.body);
       } else {
         print("Backend error: ${response.statusCode} - ${response.body}");
