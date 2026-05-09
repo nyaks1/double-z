@@ -10,7 +10,7 @@ class AudioService {
   String? _audioPath;
 
   // Change this to your backend IP if running on device, or 10.0.2.2 for emulator
-  final String _backendUrl = 'http://192.168.0.147:8000/process_intent';
+  final String _backendUrl = 'https://double-z-up63.onrender.com/process_intent';
 
   Future<void> startRecording() async {
     if (await _record.hasPermission()) {
