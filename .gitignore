@@ -22,6 +22,11 @@ build/
 # Node (Anchor generates this)
 node_modules/
 
+# Audio files (Keep the repo lean)
+*.m4a
+*.wav
+*.mp3
+
 # General
 .DS_Store
 *.log
