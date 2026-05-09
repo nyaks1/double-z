@@ -88,10 +88,9 @@ class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProvider
                               ),
                             ],
                           ),
-                          child: const Icon(
-                            Icons.graphic_eq_rounded,
-                            size: 60,
-                            color: Colors.white,
+                          child: Padding(
+                            padding: const EdgeInsets.all(12.0),
+                            child: Image.asset('assets/logo.png', fit: BoxFit.contain),
                           ),
                         ),
                         const SizedBox(height: 40),
