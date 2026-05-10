@@ -139,6 +139,9 @@ flutter run
 - **Backend:** Hosted on **Render** (Auto-deploy on git push).
 - **Mobile:** Android APK (Debug/Release).
 
+> [!NOTE]
+> **Render Free Tier Notice:** The backend is hosted on Render's free tier. If the first request is slow, please wait ~30 seconds for the instance to "wake up." Subsequent requests will be instant.
+
 ---
 
 ## Roadmap
