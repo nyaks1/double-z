@@ -15,21 +15,15 @@ DoubleZ lets you send a Solana payment by speaking naturally in any of 32 langua
 ## How It Works
 
 1. **You speak:** *"Send 10 SOL to Tsamaiso"*
-2. **Flutter** captures audio, sends it with your wallet pubkey and local contacts to the Python agent
-3. **ElevenLabs** transcribes in your language — 32 supported
-4. **Python agent** fuzzy-matches the recipient name (handles African names natively), builds an unsigned transaction
-5. **Agent forgets everything** — no session, no log, no database
-6. **Flutter** deserializes the transaction locally and verifies it matches your spoken intent
-7. **You confirm** — big, bold numbers on screen
-8. **Wallet signs locally** via Solana Mobile Wallet Adapter
-9. **Solana Anchor program** receives the signed transaction, locks funds in a PDA, releases on recipient's on-chain signature
-
----
-
-## Hackathon Tracks
-
-- **Solana Main Track ($10K)** — Rust Anchor escrow program deployed to devnet
-- **ElevenLabs Track** — Multilingual stateless voice agent, 32 languages
+2. **Flutter** captures audio, sends it with your wallet pubkey and local contacts to the Python agent.
+3. **ElevenLabs** transcribes in your language — 32 supported.
+4. **LLM Brain** extracts the intent (amount + recipient) from the transcript.
+5. **Python agent** fuzzy-matches the recipient name (handles African names natively), builds an unsigned transaction.
+6. **Agent forgets everything** — no session, no log, no database.
+7. **Flutter** deserializes the transaction locally and verifies it matches your spoken intent.
+8. **You confirm** — big, bold numbers on screen.
+9. **Wallet signs locally** via Solana Mobile Wallet Adapter.
+10. **Solana Anchor program** receives the signed transaction, locks funds in a PDA, releases on recipient's on-chain signature.
 
 ---
 
@@ -40,7 +34,7 @@ DoubleZ lets you send a Solana payment by speaking naturally in any of 32 langua
 | Voice replay / deepfake | Voice is input only — wallet signs on-chain |
 | Server data breach | No database to breach. Ever. |
 | Transaction substitution (MitM) | Flutter verifies tx locally before confirmation |
-| Fuzzy ear error (name mishearing) | `thefuzz` 80% match threshold + ambiguous fallback |
+| Fuzzy ear error (name mishearing) | `thefuzz` 80% match threshold + LLM disambiguation |
 | Fat finger / wrong amount | Human-readable confirmation, explicit tap required |
 | Key custody | Private key never leaves the device |
 
@@ -52,11 +46,11 @@ DoubleZ lets you send a Solana payment by speaking naturally in any of 32 langua
 Flutter (mobile)
     │  multipart: audio + wallet_pubkey + contacts{}
     ▼
-Python FastAPI agent  ←→  ElevenLabs (transcribe · 32 languages)
-(stateless)
+FastAPI Agent (Render)  ←→  ElevenLabs (Transcription)
+    │                   ←→  LLM (Intent Extraction)
     │  unsigned transaction payload
     ▼
-Flutter (verify tx locally → wallet signs)
+Flutter (Verify Tx locally → Wallet signs)
     │  signed transaction
     ▼
 Solana Anchor program
@@ -70,26 +64,32 @@ Solana Anchor program
 
 ## Project Structure
 
-```
+```bash
 double-z/
 ├── anchor/
 │   └── programs/doublezero/src/
 │       └── lib.rs                  # create_escrow() + release_funds()
-├── backend/
-│   ├── main.py                     # FastAPI routes
-│   ├── agent.py                    # ElevenLabs + thefuzz intent parsing
-│   ├── transaction.py              # Build unsigned Solana transaction
-│   └── .env.example                # API key template (never commit .env)
-└── mobile/
-    ├── lib/
-    │   ├── main.dart
-    │   ├── screens/
-    │   │   ├── home.dart           # Voice record screen
-    │   │   └── confirm.dart        # Confirmation screen (big bold numbers)
-    │   └── services/
-    │       ├── audio.dart          # Record + multipart POST
-    │       └── wallet.dart         # Local tx verify + sign + broadcast
-    └── pubspec.yaml
+├── backend/                        ← Python FastAPI (Render)
+│   ├── main.py                     # Entry point & routes
+│   ├── agent.py                    # ElevenLabs integration
+│   ├── llm_parser.py               # LLM-based intent extraction
+│   ├── resolver.py                 # Name matching & contact resolution
+│   ├── transaction.py              # Solders-based tx construction
+│   └── .env.example                # Configuration template
+└── mobile/                         ← Flutter App
+    ├── pubspec.yaml
+    ├── assets/
+    │   └── logo.png                # App branding
+    ├── android/                    ← Android build config
+    └── lib/
+        ├── main.dart               # App entry, routing, theme
+        ├── screens/
+        │   ├── welcome.dart        # Animated landing screen
+        │   ├── home.dart           # Voice + text input, amplitude viz
+        │   └── confirm.dart        # Transaction confirmation screen
+        └── services/
+            ├── audio.dart          # Record, pause, cancel, relay to backend
+            └── wallet.dart         # Local tx verification & MWA signing
 ```
 
 ---
@@ -98,36 +98,35 @@ double-z/
 
 | Layer | Tech |
 |---|---|
-| On-chain | Rust · Anchor 1.0.2 · Solana devnet |
-| Backend | Python 3.14 · FastAPI · ElevenLabs SDK |
-| Name resolution | thefuzz · python-Levenshtein |
-| Mobile | Flutter · Dart · Solana Mobile Wallet Adapter |
-| Voice | ElevenLabs Speech-to-Text · 32 languages |
+| **On-chain** | Rust · Anchor 1.0.2 · Solana Devnet |
+| **Backend** | Python 3.14 · FastAPI · Render |
+| **Intelligence** | LLM Intent Parsing · ElevenLabs Speech-to-Text |
+| **Name Resolution** | `thefuzz` · python-Levenshtein |
+| **Mobile** | Flutter · Dart · Solana Mobile Wallet Adapter |
 
 ---
 
 ## Setup
 
-**Backend**
+### Backend (Render)
+The backend is configured for deployment on Render using the `requirements.txt`. To run locally:
 ```bash
+cd backend
 python3 -m venv venv
 source venv/bin/activate
-pip install fastapi uvicorn elevenlabs thefuzz python-Levenshtein python-dotenv solders solana
+pip install -r requirements.txt
 cp .env.example .env
-# Add ELEVENLABS_API_KEY to .env
+# Add API keys to .env
 uvicorn main:app --reload
 ```
 
-**Anchor (Solana Playground)**
-```
-1. Open beta.solpg.io
-2. New project → Anchor → paste lib.rs contents
-3. Build → Deploy to devnet
-4. Copy Program ID → add to backend/.env as PROGRAM_ID
-```
+### Anchor (Solana)
+1. Build and deploy `anchor/programs/doublezero/src/lib.rs` to Devnet.
+2. Update `PROGRAM_ID` in the backend `.env`.
 
-**Flutter**
+### Flutter
 ```bash
+cd mobile
 flutter pub get
 flutter run
 ```
@@ -136,39 +135,26 @@ flutter run
 
 ## Deployment
 
-- Anchor program deployed to Solana devnet
-- Program ID: `[see .env after deployment]`
-- Backend: local · uvicorn
-- Mobile: Android APK
+- **Anchor:** Deployed to Solana Devnet.
+- **Backend:** Hosted on **Render** (Auto-deploy on git push).
+- **Mobile:** Android APK (Debug/Release).
 
 ---
 
 ## Roadmap
 
-### V2: Solana Name Service Resolution
-Currently DoubleZ resolves recipient names via a local 
-contact list on the Flutter app. V2 introduces SNS fallback:
+### V2: Solana Name Service (SNS)
+Integrate SNS to resolve `.sol` domains directly:
+1. User says "Send 5 SOL to nyaks.sol".
+2. LLM extracts `.sol` domain.
+3. Backend queries SNS on Mainnet and returns the pubkey.
 
-1. User says "Send 5 SOL to tsamaiso.sol"
-2. LLM parser detects `.sol` suffix in transcript
-3. Backend queries SNS program on mainnet:
-   `namesLPaSamrsfkqtunJupyXBFK65AtmJ7oqtyX2WM`
-4. Returns associated wallet pubkey
-5. Falls back to local contacts if SNS lookup fails
-
-This removes the dependency on pre-loaded contacts entirely —
-any `.sol` domain becomes a valid payment destination.
-
-### Other Future Plans
-- **LI.FI cross-chain** — fund escrow from Ethereum, Polygon, or any supported chain
-- **Acoustic sanitization** — ElevenLabs voice re-synthesis to eliminate voiceprint before relay
-- **On-device ML** — local intent parsing, fully offline
+### V2: Real Wallet Integration
+Move from Mock MWA signing to full **Phantom/Solflare** support via Solana Mobile Wallet Adapter.
 
 ---
 
 ## Built By
 
 **Nyaks** · WeThinkCode_ · Gauteng, South Africa
-FinTech · Cybersecurity · Mobile Dev
-
 *Zero trust, zero memory. Built for the continent.*
